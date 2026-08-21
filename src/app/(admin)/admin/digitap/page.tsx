@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/require-admin";
 import { prisma } from "@/lib/prisma";
-import { DigitapDashboard } from "@/components/admin/digitap-white-label";
+import { CrossVerifySimple } from "@/components/admin/crossverify-simple";
 
 export const metadata = { title: "CrossVerify White-Label" };
 
@@ -18,8 +18,8 @@ export default async function DigitapPage({ searchParams }: { searchParams: Prom
   const products = vendor
     ? await prisma.apiProduct.findMany({
         where: { vendorId: vendor.id },
-        select: { id: true, slug: true, displayName: true, category: true, method: true, endpointPath: true, baseUrl: true, status: true },
-        orderBy: { slug: "asc" },
+        select: { id: true, slug: true, displayName: true, category: true, method: true, endpointPath: true, baseUrl: true, status: true, description: true, fields: { select: { variable: true, name: true, example: true }, orderBy: { position: "asc" } } },
+        orderBy: { displayName: "asc" },
       })
     : [];
 
@@ -37,7 +37,7 @@ export default async function DigitapPage({ searchParams }: { searchParams: Prom
           All 142 CrossVerify APIs are whitelabeled at <code>/api/v1/{"{slug}"}</code>. Create a client, generate a unique API key + URL, and share it. Connected to <b>Add API</b>.
         </p>
       </div>
-      <DigitapDashboard vendor={vendor} products={products} customers={customers} appUrl={process.env.NEXT_PUBLIC_APP_URL || "https://api-reseller-platform.vercel.app"} initialFilter={sp.filter || ""} initialTestSlug={sp.test || ""} initialTestKey={sp.key || ""} />
+      <CrossVerifySimple vendor={vendor} products={products as any} customers={customers} appUrl={process.env.NEXT_PUBLIC_APP_URL || "https://api-reseller-platform.vercel.app"} />
     </div>
   );
 }
