@@ -112,7 +112,7 @@ export function DigitapDashboard({ vendor, products, customers, appUrl, initialF
         <section className="rounded-xl border bg-white p-5 dark:bg-gray-900 dark:border-gray-800 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-semibold">1. Connect your CrossVerify (Digitap) credentials</h2>
+              <h2 className="font-semibold">1. Connect your CrossVerify credentials</h2>
               <p className="text-xs text-gray-500">Vendor: <b>{vendor.name}</b> ({vendor.slug}) · Sandbox: {vendor.sandboxEndpoint} · Live: {vendor.liveEndpoint} · Products: {vendor._count.products} · Fingerprints: {vendor.sandboxKeyFingerprint.slice(0,8)}… / {vendor.liveKeyFingerprint.slice(0,8)}…</p>
             </div>
             <span className={`rounded-full px-2 py-1 text-xs ${vendor.enabled ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{vendor.enabled ? "Enabled" : "Disabled"}</span>

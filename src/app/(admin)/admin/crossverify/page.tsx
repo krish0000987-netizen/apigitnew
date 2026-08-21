@@ -34,7 +34,7 @@ export default async function CrossVerifyPage({ searchParams }: { searchParams: 
       <div>
         <h1 className="text-2xl font-bold">CrossVerify White-Label Dashboard</h1>
         <p className="mt-1 text-sm text-gray-500">
-          All 142 CrossVerify (Digitap) APIs are whitelabeled at <code>/api/v1/{"{slug}"}</code>. Create a client, generate a unique API key + URL, and share it. One key works for all 142 endpoints. Connected to <b>Add API</b> — new APIs added there appear here.
+          All 142 CrossVerify APIs are whitelabeled at <code>/api/v1/{"{slug}"}</code>. Create a client, generate a unique API key + URL, and share it. One key works for all 142 endpoints. Connected to <b>Add API</b> — new APIs added there appear here.
         </p>
       </div>
       <DigitapDashboard vendor={vendor} products={products} customers={customers} appUrl={process.env.NEXT_PUBLIC_APP_URL || "https://api-reseller-platform.vercel.app"} initialFilter={sp.filter || ""} initialTestSlug={sp.test || ""} initialTestKey={sp.key || ""} />

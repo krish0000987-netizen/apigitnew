@@ -38,7 +38,7 @@ const PRESETS: Record<string, FieldInput[]> = {
   GST: [{ label: "GSTIN", variable: "gstin", example: "22ABCDE1234F1Z5" }],
 };
 
-export function SimpleApiBuilder({ vendors }: { vendors?: Array<{ id: string; name: string; slug: string }> }) {
+export function SimpleApiBuilder({ vendors, crossProducts, appUrl }: { vendors?: Array<{ id: string; name: string; slug: string }>; crossProducts?: Array<{ id: string; slug: string; displayName: string; category: string | null; method: string; endpointPath: string }>; appUrl?: string }) {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [key, setKey] = useState("");
@@ -65,6 +65,8 @@ export function SimpleApiBuilder({ vendors }: { vendors?: Array<{ id: string; na
   const [sent, setSent] = useState<SentRequest | null>(null);
   const [showSent, setShowSent] = useState(false);
   const [tab, setTab] = useState<"normal" | "json">("normal");
+  const [crossFilter, setCrossFilter] = useState("");
+  const crossFiltered = (crossProducts || []).filter((p) => !crossFilter || p.slug.toLowerCase().includes(crossFilter.toLowerCase()) || p.displayName.toLowerCase().includes(crossFilter.toLowerCase()));
 
   async function generate() {
     setBusy(true);
@@ -244,10 +246,10 @@ export function SimpleApiBuilder({ vendors }: { vendors?: Array<{ id: string; na
               <select className={inputCls} value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
                 <option value="">New provider (auto-create)</option>
                 {vendors.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name} ({v.slug}) {v.slug === "digitap" ? "— CrossVerify" : ""}</option>
+                  <option key={v.id} value={v.id}>{v.slug === "digitap" ? "CrossVerify" : `${v.name} (${v.slug})`}</option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-gray-500">Select <b>CrossVerify (digitap)</b> to add to your 142 white-label CrossVerify APIs. It will appear in CrossVerify dashboard and share the same vendor key.</p>
+              <p className="mt-1 text-xs text-gray-500">Select <b>CrossVerify</b> to add to your 142 white-label APIs. It will appear in CrossVerify dashboard and share the same vendor key.</p>
             </div>
           )}
           <div>
@@ -496,6 +498,41 @@ export function SimpleApiBuilder({ vendors }: { vendors?: Array<{ id: string; na
           {testBusy ? "Testing…" : "Test API"}
         </button>
       </section>
+
+      {/* Integrated CrossVerify White-Label APIs */}
+      {crossProducts && crossProducts.length > 0 && (
+        <section className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">All CrossVerify White-Label APIs ({crossFiltered.length}/{crossProducts.length})</h2>
+              <p className="text-xs text-gray-500">Already white-labeled and testable. Use any white-label key from CrossVerify dashboard.</p>
+            </div>
+            <input value={crossFilter} onChange={(e) => setCrossFilter(e.target.value)} placeholder="filter" className={`${inputCls} max-w-[200px]`} />
+          </div>
+          <div className="mt-3 overflow-auto max-h-[360px] rounded-lg border dark:border-gray-700">
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50 dark:bg-gray-950 sticky top-0"><tr><th className="px-3 py-2 text-left">White-label URL</th><th className="px-3 py-2 text-left">Category</th><th className="px-3 py-2">Test</th></tr></thead>
+              <tbody>
+                {crossFiltered.slice(0, 100).map((p) => {
+                  const wl = `${(appUrl || "").replace(/\/$/, "")}/api/v1/${p.slug}`;
+                  return (
+                    <tr key={p.id} className="border-t dark:border-gray-800">
+                      <td className="px-3 py-2 font-mono"><span className="font-semibold">{p.method}</span> {wl}<div className="text-gray-400">{p.displayName}</div></td>
+                      <td className="px-3 py-2">{p.category}</td>
+                      <td className="px-3 py-2 text-center"><a href={`/admin/crossverify?test=${p.slug}${generated ? `&key=${encodeURIComponent(generated.whiteLabelKey)}` : ""}`} className="rounded border px-2 py-1 text-xs hover:bg-gray-50">Test →</a></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {crossFiltered.length > 100 && <p className="p-2 text-xs text-gray-400 text-center">Showing 100 of {crossFiltered.length} — use filter to narrow</p>}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a href="/admin/crossverify" className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700">Open CrossVerify Dashboard (generate keys & test)</a>
+            <a href="/api/customer/postman-collection" target="_blank" className="rounded-lg border px-4 py-2 text-xs font-medium hover:bg-gray-50">Download Postman collection</a>
+          </div>
+        </section>
+      )}
 
       {/* Step 4 — Result */}
       {result && (
