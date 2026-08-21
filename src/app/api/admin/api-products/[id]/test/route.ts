@@ -17,7 +17,7 @@ export async function POST(request: Request, { params }: RouteContext) {
 
   const { id } = await params;
 
-  let body: { mode?: string; body?: unknown; query?: Record<string, string> };
+  let body: { mode?: string; body?: unknown; query?: Record<string, string>; rawBody?: string };
   try {
     body = await request.json();
   } catch {
@@ -29,6 +29,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     mode: body.mode === "live" ? "live" : "sandbox",
     body: body.body ?? {},
     query: body.query ?? {},
+    rawBody: typeof body.rawBody === "string" ? body.rawBody : undefined,
   });
 
   return NextResponse.json({ result });

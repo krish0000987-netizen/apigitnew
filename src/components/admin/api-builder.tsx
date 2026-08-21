@@ -5,6 +5,20 @@ import { useRouter } from "next/navigation";
 
 // Universal API Builder (section 2). A multi-step wizard that produces a
 // generic, database-driven API product configuration — no per-provider code.
+// Supports import from Postman collection.
+
+type PostmanCollection = {
+  info: { name: string; description?: string };
+  item: Array<{
+    name: string;
+    request: {
+      method: string;
+      url: string | { raw: string; path?: string[]; query?: Array<{ key: string; value: string }> };
+      header?: Array<{ key: string; value: string }>;
+      body?: { mode: string; raw?: string };
+    };
+  }>;
+};
 
 type FieldDraft = {
   name: string;
@@ -183,6 +197,130 @@ export function ApiBuilder({
       pricingRules: [],
     };
   });
+
+  const [postmanFile, setPostmanFile] = useState<File | null>(null);
+
+  async function importFromPostman(file: File) {
+    setError(null);
+    try {
+      const text = await file.text();
+      const collection = JSON.parse(text) as PostmanCollection;
+
+      if (!collection.info || !collection.item) {
+        setError("Invalid Postman collection format");
+        return;
+      }
+
+      const firstItem = collection.item[0];
+      if (!firstItem?.request) {
+        setError("No requests found in collection");
+        return;
+      }
+
+      const req = firstItem.request;
+      let baseUrl = "";
+      let endpointPath = "/";
+
+      if (typeof req.url === "string") {
+        try {
+          const u = new URL(req.url);
+          baseUrl = `${u.protocol}//${u.host}`;
+          endpointPath = u.pathname;
+        } catch {
+          baseUrl = "https://api.example.com";
+        }
+      } else if (req.url?.raw) {
+        try {
+          const u = new URL(req.url.raw);
+          baseUrl = `${u.protocol}//${u.host}`;
+          endpointPath = u.pathname;
+        } catch {
+          baseUrl = "https://api.example.com";
+        }
+      }
+
+      let requestBodyTemplate: string = "{}";
+      if (req.body?.mode === "raw" && req.body.raw) {
+        requestBodyTemplate = req.body.raw;
+      }
+
+      const fields: FieldDraft[] = [];
+      let position = 0;
+
+      if (req.url?.query) {
+        for (const q of req.url.query) {
+          fields.push({
+            name: q.key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+            variable: q.key,
+            type: "text",
+            required: false,
+            sensitive: false,
+            store: false,
+            mask: false,
+            log: false,
+            returnToCustomer: true,
+            validation: "",
+            minLength: null,
+            maxLength: null,
+            defaultValue: "",
+            placeholder: "",
+            example: q.value || "",
+            enumOptions: [],
+          });
+          position++;
+        }
+      }
+
+      try {
+        if (req.body?.raw) {
+          const parsed = JSON.parse(req.body.raw);
+          if (parsed && typeof parsed === "object") {
+            for (const [key, value] of Object.entries(parsed)) {
+              fields.push({
+                name: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+                variable: key,
+                type: typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "text",
+                required: false,
+                sensitive: false,
+                store: false,
+                mask: false,
+                log: false,
+                returnToCustomer: true,
+                validation: "",
+                minLength: null,
+                maxLength: null,
+                defaultValue: "",
+                placeholder: "",
+                example: String(value),
+                enumOptions: [],
+              });
+              position++;
+            }
+          }
+        }
+      } catch {
+        // ignore parsing errors
+      }
+
+      const displayName = collection.info.name || "Imported API";
+      const slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+
+      setForm((f) => ({
+        ...f,
+        name: displayName,
+        displayName,
+        slug,
+        description: collection.info.description || "",
+        method: req.method || "POST",
+        baseUrl,
+        endpointPath,
+        requestBodyTemplate,
+        fields,
+      }));
+    } catch (err) {
+      setError("Failed to parse Postman collection: " + (err as Error).message);
+    }
+  }
 
   const set = <K extends keyof BuilderProduct>(key: K, value: BuilderProduct[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -385,6 +523,32 @@ export function ApiBuilder({
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
           {error}
         </p>
+      )}
+
+      {step === 0 && (
+        <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950">
+          <h3 className="font-medium mb-2">Import from Postman</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+            Upload a Postman collection JSON file to auto-fill API configuration.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="file"
+              accept=".json"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setPostmanFile(file);
+                  importFromPostman(file);
+                }
+              }}
+              className="flex-1 text-sm"
+            />
+            {postmanFile && (
+              <span className="text-sm text-green-600">Imported: {postmanFile.name}</span>
+            )}
+          </div>
+        </div>
       )}
 
       {/* STEP 1 — BASIC */}

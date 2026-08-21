@@ -219,7 +219,8 @@ async function handleProduct(
     return jsonError(403, "This API is not enabled on your account. Contact the administrator to enable it.");
   }
 
-  const bodyJson = await readJsonBody(request);
+  const rawBody = await readRawBody(request);
+  const bodyJson = parseJsonBodyText(rawBody);
   const extraVars: Record<string, unknown> = {};
   for (const [k, v] of request.nextUrl.searchParams.entries()) extraVars[k] = v;
   const vars = resolveVariables(bodyJson, extraVars);
@@ -229,7 +230,7 @@ async function handleProduct(
     return jsonError(422, errors.join(" "));
   }
 
-  const built = buildProviderRequest(product, vars, request.nextUrl.search);
+  const built = buildProviderRequest(product, vars, request.nextUrl.search, rawBody);
 
   let attempt = await callProvider(product, product.vendor, useLive, built, requestId);
 
@@ -425,9 +426,16 @@ async function handleVendor(
 
 // ---- Shared helpers ------------------------------------------------------
 
-async function readJsonBody(request: NextRequest): Promise<unknown> {
+async function readRawBody(request: NextRequest): Promise<string | undefined> {
   if (request.method === "GET" || request.method === "HEAD") return undefined;
-  const text = await request.text();
+  try {
+    return await request.text();
+  } catch {
+    return undefined;
+  }
+}
+
+function parseJsonBodyText(text: string | undefined): unknown {
   if (!text) return undefined;
   try {
     return JSON.parse(text);

@@ -60,6 +60,13 @@ export default async function ApiTesterPage({ params }: { params: Promise<{ id: 
           >
             ← Back to APIs
           </Link>
+          <a
+            href={`/api/postman/${product.slug}`}
+            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            download={`${product.slug}-postman-collection.json`}
+          >
+            Export Postman
+          </a>
         </div>
       </div>
 

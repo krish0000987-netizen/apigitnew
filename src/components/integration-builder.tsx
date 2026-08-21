@@ -35,6 +35,24 @@ export function IntegrationBuilder({
   const [prevEnabled, setPrevEnabled] = useState(enabled);
   const byId = useMemo(() => Object.fromEntries(enabled.map((e) => [e.id, e])), [enabled]);
 
+  async function downloadPostmanCollection() {
+    try {
+      const res = await fetch("/api/customer/postman-collection");
+      if (!res.ok) throw new Error("Failed to fetch collection");
+      const collection = await res.json();
+      const blob = new Blob([JSON.stringify(collection, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "my-apis-postman-collection.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download Postman collection:", err);
+      alert("Failed to download Postman collection");
+    }
+  }
+
   // Keep the canvas in sync with the server. After enable/remove/reorder we
   // call router.refresh(), which returns fresh `enabled` props — without this
   // the client-side items list would go stale (e.g. a newly enabled service
@@ -112,10 +130,23 @@ export function IntegrationBuilder({
 
         {/* Canvas */}
         <section className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="mb-1 text-lg font-semibold">Your integrations</h2>
-          <p className="mb-4 text-sm text-gray-500">
-            Drag to reorder, or use the handle with your keyboard.
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="mb-1 text-lg font-semibold">Your integrations</h2>
+              <p className="text-sm text-gray-500">
+                Drag to reorder, or use the handle with your keyboard.
+              </p>
+            </div>
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={downloadPostmanCollection}
+                className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+              >
+                Export Postman Collection
+              </button>
+            )}
+          </div>
           <CanvasDrop isEmpty={items.length === 0}>
             <SortableContext items={items} strategy={verticalListSortingStrategy}>
               {items.map((id) => {

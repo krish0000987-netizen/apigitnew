@@ -45,6 +45,7 @@ export async function runProductTest(input: {
   mode?: "sandbox" | "live";
   body?: unknown;
   query?: Record<string, string>;
+  rawBody?: string;
 }): Promise<TesterResult> {
   const requestId = generateRequestId();
   const base: TesterResult = {
@@ -82,7 +83,7 @@ export async function runProductTest(input: {
     return { ...base, errors };
   }
 
-  const built = buildProviderRequest(p, vars, new URLSearchParams(input.query ?? {}).toString());
+  const built = buildProviderRequest(p, vars, new URLSearchParams(input.query ?? {}).toString(), input.rawBody);
   const { headers: authHeaders, queryParams: authQuery } = await buildProviderAuth(p.vendor, useLive);
   const finalUrl = new URL(built.url);
   for (const [k, v] of Object.entries(authQuery)) finalUrl.searchParams.set(k, v);
@@ -177,6 +178,15 @@ export async function runProductTest(input: {
 
 function buildHumanView(product: LoadedProduct, raw: unknown, success: boolean): Array<{ label: string; value: string; sensitive?: boolean }> {
   const rows: Array<{ label: string; value: string; sensitive?: boolean }> = [];
+
+  // Simple/quick-add products have no response mappings — show every field the
+  // provider returned, flattened into readable rows (Name, Address, Status...).
+  if (product.mappings.length === 0) {
+    rows.push(...flattenHuman(raw, ""));
+    rows.push({ label: "Status", value: success ? "✓ Success" : "✗ Failed" });
+    return rows;
+  }
+
   const mapped = mapResponse(raw, product.mappings);
   for (const rule of [...product.mappings].sort((a, b) => a.position - b.position)) {
     const value = mapped[rule.customerField];
@@ -196,4 +206,26 @@ function buildHumanView(product: LoadedProduct, raw: unknown, success: boolean):
   }
   rows.push({ label: "Verification Status", value: success ? "✓ Verified" : "✗ Failed" });
   return rows;
+}
+
+function flattenHuman(value: unknown, prefix: string): Array<{ label: string; value: string; sensitive?: boolean }> {
+  const rows: Array<{ label: string; value: string; sensitive?: boolean }> = [];
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v !== null && typeof v === "object") {
+        rows.push(...flattenHuman(v, prefix ? `${prefix}.${k}` : k));
+      } else {
+        rows.push({ label: titleCase(k), value: v === null || v === undefined ? "—" : String(v) });
+      }
+    }
+  } else if (Array.isArray(value)) {
+    value.forEach((item, i) => rows.push(...flattenHuman(item, `${prefix}[${i}]`)));
+  } else if (value !== undefined && value !== null && value !== "") {
+    rows.push({ label: titleCase(prefix || "Value"), value: String(value) });
+  }
+  return rows;
+}
+
+function titleCase(key: string): string {
+  return key.replace(/_/g, " ").replace(/([A-Z])/g, " $1").trim().replace(/\s+/g, " ").replace(/^./, (c) => c.toUpperCase());
 }

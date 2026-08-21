@@ -207,6 +207,7 @@ export function buildProviderRequest(
   product: ProductConfig,
   vars: ResolvedVariables,
   extraQuery?: string,
+  rawBody?: string,
 ): BuiltRequest {
   const method = product.method || "POST";
   const base = product.baseUrl.replace(/\/+$/, "");
@@ -259,6 +260,10 @@ export function buildProviderRequest(
       if (typeof product.requestBodyTemplate === "string") {
         body = renderTemplate(product.requestBodyTemplate, vars);
         contentType = headers["content-type"] ?? "text/plain";
+      } else if (rawBody) {
+        // Simple passthrough: forward the caller's body exactly as-is.
+        body = rawBody;
+        contentType = headers["content-type"] ?? "application/json";
       }
       break;
     case "form": {

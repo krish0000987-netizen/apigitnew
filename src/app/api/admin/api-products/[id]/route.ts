@@ -38,12 +38,20 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   const existing = await prisma.apiProduct.findUnique({ where: { id }, select: { id: true, name: true } });
   if (!existing) return NextResponse.json({ error: "API product not found" }, { status: 404 });
 
-  let body: unknown;
+  let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  // Only update fields the client explicitly sent. The update schema applies
+  // zod defaults to omitted keys, which would otherwise clobber configured
+  // values on partial PATCHes.
+  const rawKeys = new Set(Object.keys(body));
 
   const parsed = apiProductUpdateSchema.safeParse(body);
   if (!parsed.success) {
@@ -74,16 +82,19 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   ] as const;
 
   for (const key of scalarKeys) {
-    if (d[key] !== undefined) scalar[key] = d[key] as never;
+    if (rawKeys.has(key) && d[key] !== undefined) scalar[key] = d[key] as never;
   }
-  if (d.defaultCost !== undefined) scalar.defaultCost = rupeesToPaise(d.defaultCost as number);
-  if (d.defaultPrice !== undefined) scalar.defaultPrice = rupeesToPaise(d.defaultPrice as number);
-  if (d.fallbackVendorIds !== undefined) scalar.fallbackVendorIds = (d.fallbackVendorIds as string[]).join(",");
+  if (rawKeys.has("defaultCost") && d.defaultCost !== undefined)
+    scalar.defaultCost = rupeesToPaise(d.defaultCost as number);
+  if (rawKeys.has("defaultPrice") && d.defaultPrice !== undefined)
+    scalar.defaultPrice = rupeesToPaise(d.defaultPrice as number);
+  if (rawKeys.has("fallbackVendorIds") && d.fallbackVendorIds !== undefined)
+    scalar.fallbackVendorIds = (d.fallbackVendorIds as string[]).join(",");
 
   const product = await prisma.$transaction(async (tx) => {
     const updated = await tx.apiProduct.update({ where: { id }, data: scalar as never });
 
-    if (d.fields) {
+    if (rawKeys.has("fields") && d.fields !== undefined) {
       await tx.apiField.deleteMany({ where: { productId: id } });
       if (d.fields.length > 0) {
         await tx.apiField.createMany({
@@ -114,7 +125,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       }
     }
 
-    if (d.mappings) {
+    if (rawKeys.has("mappings") && d.mappings !== undefined) {
       await tx.apiResponseMapping.deleteMany({ where: { productId: id } });
       if (d.mappings.length > 0) {
         await tx.apiResponseMapping.createMany({
@@ -136,7 +147,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       }
     }
 
-    if (d.pricingRules) {
+    if (rawKeys.has("pricingRules") && d.pricingRules !== undefined) {
       await tx.pricingRule.deleteMany({ where: { productId: id } });
       if (d.pricingRules.length > 0) {
         await tx.pricingRule.createMany({

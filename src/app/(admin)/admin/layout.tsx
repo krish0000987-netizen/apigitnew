@@ -4,10 +4,12 @@ import { LogoutButton } from "@/components/admin/logout-button";
 
 const NAV = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/add-api", label: "Add API" },
   { href: "/admin/apis", label: "APIs" },
   { href: "/admin/providers", label: "Providers" },
   { href: "/admin/apis/new", label: "API Builder" },
   { href: "/admin/customers", label: "Customers" },
+  { href: "/admin/guide", label: "Guide" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
