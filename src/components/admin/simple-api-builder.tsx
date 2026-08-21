@@ -38,7 +38,7 @@ const PRESETS: Record<string, FieldInput[]> = {
   GST: [{ label: "GSTIN", variable: "gstin", example: "22ABCDE1234F1Z5" }],
 };
 
-export function SimpleApiBuilder() {
+export function SimpleApiBuilder({ vendors }: { vendors?: Array<{ id: string; name: string; slug: string }> }) {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [key, setKey] = useState("");
@@ -46,6 +46,7 @@ export function SimpleApiBuilder() {
   const [authType, setAuthType] = useState("bearer");
   const [authHeaderName, setAuthHeaderName] = useState("x-api-key");
   const [authQueryParam, setAuthQueryParam] = useState("api_key");
+  const [vendorId, setVendorId] = useState<string>(() => vendors?.find((v) => v.slug === "digitap")?.id || "");
   const [fields, setFields] = useState<FieldInput[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -73,7 +74,7 @@ export function SimpleApiBuilder() {
       const res = await fetch("/api/admin/simple-apis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, url, key, method, authType, authHeaderName, authQueryParam, fields }),
+        body: JSON.stringify({ name, url, key, method, authType, authHeaderName, authQueryParam, vendorId: vendorId || undefined, fields }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -237,6 +238,18 @@ export function SimpleApiBuilder() {
               </select>
             </div>
           </div>
+          {vendors && vendors.length > 0 && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">White-label group (vendor)</label>
+              <select className={inputCls} value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
+                <option value="">New provider (auto-create)</option>
+                {vendors.map((v) => (
+                  <option key={v.id} value={v.id}>{v.name} ({v.slug}) {v.slug === "digitap" ? "— CrossVerify" : ""}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">Select <b>CrossVerify (digitap)</b> to add to your 142 white-label CrossVerify APIs. It will appear in CrossVerify dashboard and share the same vendor key.</p>
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium">Third-party API URL</label>
             <input
@@ -396,6 +409,12 @@ export function SimpleApiBuilder() {
           <p className="mt-3 text-xs text-green-700 dark:text-green-300">
             Copy the key now — for security it is shown only once.
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a href={`/admin/crossverify?filter=${generated.slug}`} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">View in CrossVerify Dashboard</a>
+            <a href={`/admin/crossverify?test=${generated.slug}&key=${encodeURIComponent(generated.whiteLabelKey)}`} className="rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 dark:border-gray-700">Test in CrossVerify Tester →</a>
+            <a href={`/admin/apis`} className="rounded-lg border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:bg-gray-900 dark:border-gray-700">All APIs</a>
+          </div>
+          <p className="mt-2 text-xs text-green-600">If you selected CrossVerify, this API now appears in CrossVerify (142 → 143) and uses the CrossVerify vendor key. Clients with a CrossVerify key can call it at <code>/api/v1/{generated.slug}</code>.</p>
         </section>
       )}
 

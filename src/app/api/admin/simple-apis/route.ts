@@ -25,6 +25,7 @@ export async function POST(request: Request) {
     authType?: string;
     authHeaderName?: string;
     authQueryParam?: string;
+    vendorId?: string;
     fields?: Array<{ label?: string; variable?: string; example?: string }>;
   };
   try {
@@ -74,23 +75,45 @@ export async function POST(request: Request) {
 
   const slug = await uniqueSlug(name);
 
-  const vendor = await prisma.vendor.create({
-    data: {
-      name,
-      slug: `${slug}-provider`,
-      sandboxEndpoint: url.toString(),
-      sandboxKeyEnc: encryptSecret(key),
-      sandboxKeyFingerprint: key ? fingerprint(key) : "",
-      liveEndpoint: url.toString(),
-      liveKeyEnc: encryptSecret(key),
-      liveKeyFingerprint: key ? fingerprint(key) : "",
-      authType: key ? authType : "none",
-      authHeaderName: authType === "api_key" ? authHeaderName : null,
-      authQueryParam: authType === "query" ? authQueryParam : null,
-      enabled: true,
-    },
-    select: { id: true, slug: true },
-  });
+  let vendor: { id: string; slug: string };
+  if (body.vendorId) {
+    const existing = await prisma.vendor.findUnique({ where: { id: body.vendorId }, select: { id: true, slug: true } });
+    if (!existing) return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
+    vendor = existing;
+    // optionally update its endpoint/key if provided
+    if (key) {
+      await prisma.vendor.update({
+        where: { id: vendor.id },
+        data: {
+          sandboxKeyEnc: encryptSecret(key),
+          sandboxKeyFingerprint: fingerprint(key),
+          liveKeyEnc: encryptSecret(key),
+          liveKeyFingerprint: fingerprint(key),
+          authType: authType as any,
+          authHeaderName: authType === "api_key" ? authHeaderName : undefined,
+          authQueryParam: authType === "query" ? authQueryParam : undefined,
+        },
+      });
+    }
+  } else {
+    vendor = await prisma.vendor.create({
+      data: {
+        name,
+        slug: `${slug}-provider`,
+        sandboxEndpoint: url.toString(),
+        sandboxKeyEnc: encryptSecret(key),
+        sandboxKeyFingerprint: key ? fingerprint(key) : "",
+        liveEndpoint: url.toString(),
+        liveKeyEnc: encryptSecret(key),
+        liveKeyFingerprint: key ? fingerprint(key) : "",
+        authType: key ? authType : "none",
+        authHeaderName: authType === "api_key" ? authHeaderName : null,
+        authQueryParam: authType === "query" ? authQueryParam : null,
+        enabled: true,
+      },
+      select: { id: true, slug: true },
+    });
+  }
 
   const product = await prisma.apiProduct.create({
     data: {

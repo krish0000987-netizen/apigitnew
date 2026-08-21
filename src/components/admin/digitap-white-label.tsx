@@ -7,9 +7,9 @@ type Vendor = { id: string; name: string; slug: string; sandboxEndpoint: string;
 type Product = { id: string; slug: string; displayName: string; category: string | null; method: string; endpointPath: string; baseUrl: string; status: string };
 type Customer = { id: string; email: string; name: string | null; mode: string; apiKeyPrefix: string | null; plan: string };
 
-export function DigitapDashboard({ vendor, products, customers, appUrl }: { vendor: Vendor; products: Product[]; customers: Customer[]; appUrl: string }) {
+export function DigitapDashboard({ vendor, products, customers, appUrl, initialFilter, initialTestSlug, initialTestKey }: { vendor: Vendor; products: Product[]; customers: Customer[]; appUrl: string; initialFilter?: string; initialTestSlug?: string; initialTestKey?: string }) {
   const router = useRouter();
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState(initialFilter || "");
   const [selectedCustomer, setSelectedCustomer] = useState<string>(customers[0]?.id || "");
   const [generated, setGenerated] = useState<{ apiKey: string; email: string; mode: string } | null>(null);
   const [newEmail, setNewEmail] = useState("");
@@ -21,8 +21,8 @@ export function DigitapDashboard({ vendor, products, customers, appUrl }: { vend
   const [busy, setBusy] = useState(false);
 
   // tester state
-  const [testSlug, setTestSlug] = useState<string>(products[0]?.slug || "");
-  const [testKey, setTestKey] = useState("");
+  const [testSlug, setTestSlug] = useState<string>(initialTestSlug || products[0]?.slug || "");
+  const [testKey, setTestKey] = useState(initialTestKey || "");
   const [testMode, setTestMode] = useState<"sandbox" | "live">("live");
   const [testBody, setTestBody] = useState('{\n  "pan_number": "ABCDE1234F"\n}');
   const [testResp, setTestResp] = useState<{ status: number; body: string; headers: string } | null>(null);
