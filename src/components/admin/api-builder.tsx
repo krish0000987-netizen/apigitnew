@@ -20,6 +20,8 @@ type PostmanCollection = {
   }>;
 };
 
+type PostmanUrl = string | { raw: string; path?: string[]; query?: Array<{ key: string; value: string }> };
+
 type FieldDraft = {
   name: string;
   variable: string;
@@ -229,7 +231,7 @@ export function ApiBuilder({
         } catch {
           baseUrl = "https://api.example.com";
         }
-      } else if (req.url?.raw) {
+      } else if (req.url && typeof req.url === "object" && "raw" in req.url) {
         try {
           const u = new URL(req.url.raw);
           baseUrl = `${u.protocol}//${u.host}`;
@@ -247,8 +249,9 @@ export function ApiBuilder({
       const fields: FieldDraft[] = [];
       let position = 0;
 
-      if (req.url?.query) {
-        for (const q of req.url.query) {
+      const urlObj = req.url && typeof req.url === "object" ? req.url as { query?: Array<{ key: string; value: string }> } : null;
+      if (urlObj?.query) {
+        for (const q of urlObj.query) {
           fields.push({
             name: q.key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
             variable: q.key,

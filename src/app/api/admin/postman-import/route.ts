@@ -88,7 +88,7 @@ function postmanToOpenApi(collection: Record<string, unknown>): Record<string, u
       }
     }
 
-    paths[path][method] = {
+    (paths[path] as Record<string, unknown>)[method] = {
       summary: String(item.name ?? "Imported Operation"),
       description: String(item.name ?? "Imported Operation"),
       operationId: String(item.name ?? "imported_operation").replace(/\s+/g, "_").toLowerCase(),
@@ -106,8 +106,8 @@ function postmanToOpenApi(collection: Record<string, unknown>): Record<string, u
   return {
     openapi: "3.0.3",
     info: {
-      title: String(collection.info?.name ?? "Imported API"),
-      description: String(collection.info?.description ?? ""),
+      title: String((collection.info as Record<string, unknown>)?.name ?? "Imported API"),
+      description: String((collection.info as Record<string, unknown>)?.description ?? ""),
       version: "1.0.0",
     },
     servers: [{ url: "/api/v1" }],
@@ -195,21 +195,21 @@ async function createProductFromOpenApi(
   const product = await prisma.apiProduct.create({
     data: {
       slug: finalSlug,
+      name: finalSlug,
       displayName: String(info.title ?? "Imported API"),
       description: String(info.description ?? ""),
-      version: 1,
+      version: "1",
       status: "draft",
       vendorId,
       method: firstMethod.toUpperCase(),
       baseUrl: "https://api.example.com",
       endpointPath: firstPath,
       requestBodyType: "json",
-      requestBodyTemplate: requestBodySchema ?? {},
+      requestBodyTemplate: requestBodySchema as never,
       fields: { create: fields },
       defaultPrice: 100,
       defaultCost: 50,
       billingModel: "per_request",
-      createdBy: userId,
     },
   });
 

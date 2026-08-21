@@ -89,7 +89,8 @@ function openApiToPostman(openApiSpec: Record<string, unknown>, baseUrl: string)
     }
   }
 
-  const auth = securitySchemes?.bearerAuth as Record<string, unknown> | undefined;
+  const securitySchemesObj = securitySchemes as Record<string, unknown> | undefined;
+  const bearerAuth = securitySchemesObj?.bearerAuth as Record<string, unknown> | undefined;
 
   return {
     info: {
@@ -98,7 +99,7 @@ function openApiToPostman(openApiSpec: Record<string, unknown>, baseUrl: string)
       schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     },
     item: items,
-    auth: auth ? { type: "bearer", bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }] } : undefined,
+    auth: bearerAuth ? { type: "bearer", bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }] } : undefined,
     variable: [
       { key: "baseUrl", value: baseUrl.replace(/\/$/, ""), type: "string" },
       { key: "apiKey", value: "YOUR_API_KEY", type: "string" },
@@ -111,7 +112,7 @@ async function buildOpenApiSpec(product: {
   slug: string;
   displayName: string;
   description: string | null;
-  version: number;
+  version: string;
   method: string;
   fields: Array<{
     variable: string;
@@ -194,7 +195,7 @@ async function buildOpenApiSpec(product: {
     info: {
       title: product.displayName,
       description: `${product.description ?? ""}\n\nPrice: ₹${price.toFixed(2)} per request.`.trim(),
-      version: `v${product.version}`,
+      version: product.version,
     },
     servers: [{ url: `/api/v1`, description: "White-label gateway" }],
     security: [{ bearerAuth: [] }],
@@ -215,7 +216,7 @@ export async function GET() {
     include: {
       vendor: {
         include: {
-          apiProducts: {
+          products: {
             where: { status: "published" },
             orderBy: { version: "desc" },
             take: 1,
@@ -236,7 +237,7 @@ export async function GET() {
   let collectionDescription = "Postman collection for all enabled APIs";
 
   for (const integration of integrations) {
-    for (const product of integration.vendor.apiProducts) {
+    for (const product of integration.vendor.products) {
       const openApiSpec = await buildOpenApiSpec(product);
       const postmanCollection = openApiToPostman(openApiSpec, baseUrl);
 
@@ -249,8 +250,8 @@ export async function GET() {
     }
   }
 
-  const securitySchemes = { bearerAuth: { type: "http", scheme: "bearer" } };
-  const auth = securitySchemes.bearerAuth as Record<string, unknown>;
+  const securitySchemesObj = { bearerAuth: { type: "http", scheme: "bearer" } };
+  const bearerAuth = securitySchemesObj.bearerAuth as Record<string, unknown>;
 
   const finalCollection = {
     info: {
@@ -259,7 +260,7 @@ export async function GET() {
       schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     },
     item: allItems,
-    auth: auth ? { type: "bearer", bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }] } : undefined,
+    auth: bearerAuth ? { type: "bearer", bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }] } : undefined,
     variable: [
       { key: "baseUrl", value: baseUrl.replace(/\/$/, ""), type: "string" },
       { key: "apiKey", value: "YOUR_API_KEY", type: "string" },
