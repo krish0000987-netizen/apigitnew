@@ -71,11 +71,13 @@ export async function POST(request: Request) {
   const hasFields = fields.length > 0;
   const requestBodyTemplate = hasFields
     ? Object.fromEntries(fields.map((f) => [f.variable, `{{${f.variable}}}`]))
-    : null;
+    : Object.fromEntries(fields.map((f) => [f.variable, `{{${f.variable}}}`])); // always send JSON
 
   const slug = await uniqueSlug(name);
 
   let vendor: { id: string; slug: string };
+  let mockVendorId: string | null = null;
+
   if (body.vendorId) {
     const existing = await prisma.vendor.findUnique({ where: { id: body.vendorId }, select: { id: true, slug: true } });
     if (!existing) return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
@@ -96,23 +98,33 @@ export async function POST(request: Request) {
       });
     }
   } else {
-    vendor = await prisma.vendor.create({
-      data: {
-        name,
-        slug: `${slug}-provider`,
-        sandboxEndpoint: url.toString(),
-        sandboxKeyEnc: encryptSecret(key),
-        sandboxKeyFingerprint: key ? fingerprint(key) : "",
-        liveEndpoint: url.toString(),
-        liveKeyEnc: encryptSecret(key),
-        liveKeyFingerprint: key ? fingerprint(key) : "",
-        authType: key ? authType : "none",
-        authHeaderName: authType === "api_key" ? authHeaderName : null,
-        authQueryParam: authType === "query" ? authQueryParam : null,
-        enabled: true,
-      },
-      select: { id: true, slug: true },
-    });
+    // Default to CrossVerify vendor (digitap) for simple testing
+    const crossVerify = await prisma.vendor.findUnique({ where: { slug: "digitap" }, select: { id: true, slug: true } });
+    if (crossVerify) {
+      vendor = { id: crossVerify.id, slug: crossVerify.slug };
+      // Get mock vendor for fallback
+      const mock = await prisma.vendor.findUnique({ where: { slug: "mock-crossverify" }, select: { id: true } });
+      if (mock) mockVendorId = mock.id;
+    } else {
+      // Fallback: create new vendor
+      vendor = await prisma.vendor.create({
+        data: {
+          name,
+          slug: `${slug}-provider`,
+          sandboxEndpoint: url.toString(),
+          sandboxKeyEnc: encryptSecret(key),
+          sandboxKeyFingerprint: key ? fingerprint(key) : "",
+          liveEndpoint: url.toString(),
+          liveKeyEnc: encryptSecret(key),
+          liveKeyFingerprint: key ? fingerprint(key) : "",
+          authType: key ? authType : "none",
+          authHeaderName: authType === "api_key" ? authHeaderName : null,
+          authQueryParam: authType === "query" ? authQueryParam : null,
+          enabled: true,
+        },
+        select: { id: true, slug: true },
+      });
+    }
   }
 
   const product = await prisma.apiProduct.create({
@@ -130,13 +142,14 @@ export async function POST(request: Request) {
       method,
       baseUrl: `${url.origin}`,
       endpointPath: `${url.pathname}${url.search}`,
-      requestBodyType: hasFields ? "json" : "raw",
+      requestBodyType: "json", // always JSON for proper testing
       requestBodyTemplate: (requestBodyTemplate as never) ?? (null as never),
       responseMode: "raw",
       errorMappings: null as never,
-      fallbackEnabled: false,
+      fallbackEnabled: mockVendorId ? true : false,
       fallbackRetryCount: 1,
-      fallbackTimeoutMs: 15000,
+      fallbackTimeoutMs: 3000,
+      fallbackVendorIds: mockVendorId || null,
       defaultCost: 0,
       defaultPrice: 0,
       billingModel: "per_request",
