@@ -21,7 +21,7 @@ export function AddApiPageClient({ initialVendor }: { initialVendor: VendorInfo 
 
   // tester
   const [testBody, setTestBody] = useState("");
-  const [testEnv, setTestEnv] = useState<"sandbox" | "live">("live");
+  const [testEnv, setTestEnv] = useState<"sandbox" | "live">("sandbox");
   const [resp, setResp] = useState<{ status: number; body: unknown; raw: string; ok: boolean } | null>(null);
   const [tab, setTab] = useState<"normal" | "json">("normal");
   const [testing, setTesting] = useState(false);
