@@ -230,7 +230,13 @@ async function handleProduct(
     return jsonError(422, errors.join(" "));
   }
 
-  const built = buildProviderRequest(product, vars, request.nextUrl.search, rawBody);
+  // CrossVerify sandbox uses mock so any Aadhaar/PAN returns fake details without needing real Digitap token
+  // Live mode goes to real Digitap (requires real vendor token for real data)
+  const MOCK_BASE = "https://api-reseller-platform.vercel.app/api/mock/crossverify";
+  const isCrossVerify = product.baseUrl.includes("digitap.work");
+  const productForRequest = mode === "sandbox" && isCrossVerify ? { ...product, baseUrl: MOCK_BASE } : product;
+
+  const built = buildProviderRequest(productForRequest, vars, request.nextUrl.search, rawBody);
 
   let attempt = await callProvider(product, product.vendor, useLive, built, requestId);
 
