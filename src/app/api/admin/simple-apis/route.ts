@@ -201,7 +201,9 @@ export async function POST(request: Request) {
   }
   if (!customer) throw new Error("Failed to create test customer");
 
-  const apiKey = await generateApiKey("sandbox");
+  const isCrossVerify = vendor.slug === "digitap";
+  const keyMode = isCrossVerify ? "live" as const : "sandbox" as const;
+  const apiKey = await generateApiKey(keyMode);
   await prisma.customerApiKey.create({
     data: {
       customerId: customer.id,
@@ -209,7 +211,7 @@ export async function POST(request: Request) {
       apiKeyHash: apiKey.hash,
       apiKeyLookup: apiKey.lookup,
       apiKeyPrefix: apiKey.masked,
-      mode: "sandbox",
+      mode: keyMode,
       status: "active",
     },
   });
