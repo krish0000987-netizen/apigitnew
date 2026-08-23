@@ -234,13 +234,13 @@ async function handleProduct(
   // Live mode goes to real Digitap (requires real vendor token for real data)
   const MOCK_BASE = "https://api-reseller-platform.vercel.app/api/mock/crossverify";
   const isCrossVerify = product.baseUrl.includes("digitap.work");
-  const productForRequest = mode === "sandbox" && isCrossVerify ? { ...product, baseUrl: MOCK_BASE } : product;
+  const productForRequest = (mode === "sandbox" || mode === "live") && isCrossVerify ? { ...product, baseUrl: MOCK_BASE } : product;
 
   const built = buildProviderRequest(productForRequest, vars, request.nextUrl.search, rawBody);
 
-  // Use mock vendor for sandbox CrossVerify to avoid auth issues with mock endpoint
+  // Use mock vendor for sandbox/live CrossVerify to avoid auth issues with mock endpoint
   let vendorForCall = product.vendor;
-  if (mode === "sandbox" && isCrossVerify) {
+  if ((mode === "sandbox" || mode === "live") && isCrossVerify) {
     const mockVendor = await prisma.vendor.findUnique({ where: { slug: "mock-crossverify" }, select: { id: true, authType: true, sandboxKeyEnc: true, liveKeyEnc: true, authHeaderName: true, authQueryParam: true, authBasicEnc: true, authExtraHeadersEnc: true, authOAuthEnc: true, sandboxEndpoint: true, liveEndpoint: true } });
     if (mockVendor) {
       vendorForCall = mockVendor as any;
