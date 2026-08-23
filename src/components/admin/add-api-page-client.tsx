@@ -43,11 +43,6 @@ export function AddApiPageClient({ initialVendor }: { initialVendor: VendorInfo 
 
   const cur = selected !== null ? DIGITAP_APIS[selected] : null;
 
-  function useSelectedBody() {
-    if (!cur) return;
-    setTestBody(cur.body || '{\n  "client_ref_num": "test991"\n}');
-  }
-
   async function updateVendorKeys() {
     if (!initialVendor) { setMsg("CrossVerify vendor not found"); return; }
     if (!apiKey.trim() && !liveKey.trim()) { setMsg("Paste at least one API key"); return; }
@@ -62,10 +57,10 @@ export function AddApiPageClient({ initialVendor }: { initialVendor: VendorInfo 
     else setMsg("✅ CrossVerify keys updated — all 142 white-label APIs now use your Digitap portal keys");
   }
 
-  async function whiteLabel() {
-    if (selected === null || !cur) { setMsg("Select an API first"); return; }
-    setBusy(true); setMsg(null);
-    // Use CrossVerify vendor (digitap) so it appears in CrossVerify dashboard
+  async function whiteLabel(auto = false) {
+    if (selected === null || !cur) { if (!auto) setMsg("Select an API first"); return; }
+    if (!cur) return;
+    setBusy(true); if (!auto) setMsg(null);
     const vendorId = initialVendor?.id;
     const url = cur.url.replace("{{BASE_URL_API}}", baseApi.replace(/\/$/, "")).replace("{{BASE_URL_SVC}}", baseSvc.replace(/\/$/, "")).replace("{{BASE_URL}}", baseApi.replace(/\/$/, ""));
     const keyToUse = liveKey.trim() || apiKey.trim() || "demo-key";
@@ -78,16 +73,28 @@ export function AddApiPageClient({ initialVendor }: { initialVendor: VendorInfo 
         }
       }
     } catch {}
+    const displayName = `CrossVerify — ${cur.name.split(" > ").slice(-1)[0]}`;
     const r = await fetch("/api/admin/simple-apis", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: cur.name.split(" > ").slice(-1)[0], url, key: keyToUse, method: cur.method, authType: cur.headers.includes("ent_authorization") ? "api_key" : "bearer", authHeaderName: cur.headers.includes("ent_authorization") ? "ent_authorization" : "Authorization", vendorId, fields }),
+      body: JSON.stringify({ name: displayName, url, key: keyToUse, method: cur.method, authType: cur.headers.includes("ent_authorization") ? "api_key" : "bearer", authHeaderName: cur.headers.includes("ent_authorization") ? "ent_authorization" : "Authorization", vendorId, fields }),
     });
     const j = await r.json().catch(() => ({}));
     setBusy(false);
-    if (!r.ok) { setMsg(j.error || "White-label failed"); return; }
+    if (!r.ok) { if (!auto) setMsg(j.error || "White-label failed"); return; }
     setWlUrl(j.whiteLabelUrl); setWlKey(j.whiteLabelKey); setWlSlug(j.slug);
     setTestBody(cur.body || JSON.stringify(Object.fromEntries(fields.map((f) => [f.variable, f.example])), null, 2) || '{\n  "client_ref_num": "test991"\n}');
-    setMsg(`✅ White-labeled: ${cur.name} → /api/v1/${j.slug} (CrossVerify)`);
+    if (!auto) setMsg(`✅ CrossVerify white-label ready: ${displayName} → /api/v1/${j.slug}`);
+    // auto-generate Postman env is handled in UI
+  }
+
+  // Auto-generate CrossVerify white-label key right after selection (for Postman + live)
+  async function handleSelect(idx: number) {
+    setSelected(idx);
+    const a = DIGITAP_APIS[idx];
+    setTestBody(a.body || '{\n  "client_ref_num": "test991"\n}');
+    setWlUrl(null); setWlKey(null); setWlSlug(null);
+    // auto white-label after short delay so UI updates first
+    setTimeout(() => whiteLabel(true), 300);
   }
 
   async function runTest() {
@@ -151,10 +158,10 @@ export function AddApiPageClient({ initialVendor }: { initialVendor: VendorInfo 
                 const isSel = selected === realIdx;
                 return (
                   <tr key={realIdx} className={`border-t dark:border-gray-800 ${isSel ? "bg-blue-50 dark:bg-blue-950" : ""}`}>
-                    <td className="px-3 py-2"><div className="font-medium text-sm leading-tight">{a.name.split(" > ").slice(-1)[0]}</div><div className="text-xs text-gray-500 truncate max-w-[320px]">{a.name}</div></td>
+                    <td className="px-3 py-2"><div className="font-medium text-sm leading-tight">CrossVerify — {a.name.split(" > ").slice(-1)[0]}</div><div className="text-xs text-gray-500 truncate max-w-[320px]">{a.name}</div></td>
                     <td className="px-3 py-2"><span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium dark:bg-gray-800">{a.method}</span></td>
                     <td className="px-3 py-2 font-mono text-xs truncate max-w-[260px]">{a.url}</td>
-                    <td className="px-3 py-2 text-center"><button onClick={() => { setSelected(realIdx); useSelectedBody(); }} className={`rounded px-3 py-1 text-xs font-medium ${isSel ? "bg-blue-600 text-white" : "border hover:bg-gray-50"}`}>{isSel ? "Selected" : "Select"}</button></td>
+                    <td className="px-3 py-2 text-center"><button onClick={() => handleSelect(realIdx)} className={`rounded px-3 py-1 text-xs font-medium ${isSel ? "bg-blue-600 text-white" : "border hover:bg-gray-50"}`}>{isSel ? "Selected" : "Select"}</button></td>
                   </tr>
                 );
               })}
@@ -163,24 +170,33 @@ export function AddApiPageClient({ initialVendor }: { initialVendor: VendorInfo 
         </div>
         {cur && (
           <div className="mt-3 rounded-lg bg-blue-50 border border-blue-200 p-3 dark:bg-blue-950 dark:border-blue-800">
-            <div className="font-medium text-sm">Selected: <span className="font-mono">{cur.method}</span> {cur.name}</div>
+            <div className="font-medium text-sm">Selected: <span className="font-mono">{cur.method}</span> CrossVerify — {cur.name.split(" > ").slice(-1)[0]}</div>
             <div className="font-mono text-xs break-all">{cur.url.replace("{{BASE_URL_API}}", baseApi).replace("{{BASE_URL_SVC}}", baseSvc)}</div>
             <div className="text-xs text-gray-600 dark:text-gray-400">Headers: {cur.headers.join(", ") || "none"} {cur.body ? `· Body: ${cur.body.slice(0, 120)}...` : ""}</div>
-            <button onClick={whiteLabel} disabled={busy} className="mt-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">{busy ? "..." : "White-label this API → Generate CrossVerify URL + Key"}</button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button onClick={() => whiteLabel()} disabled={busy} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50">{busy ? "Generating CrossVerify Key..." : wlUrl ? "Regenerate CrossVerify White-Label Key" : "White-label this API → Auto CrossVerify Key"}</button>
+              {busy && <span className="text-xs text-gray-500 self-center">Auto-generating CrossVerify white-label key for Postman + live...</span>}
+            </div>
           </div>
         )}
       </div>
 
       {wlUrl && wlKey && (
         <div className="rounded-xl border-2 border-green-300 bg-green-50 p-5 dark:bg-green-950 dark:border-green-800 space-y-3">
-          <h2 className="font-semibold text-green-800 dark:text-green-200">✅ White-label ready — give this to your client (CrossVerify branding)</h2>
+          <h2 className="font-semibold text-green-800 dark:text-green-200">✅ CrossVerify White-Label Ready — Postman + Live</h2>
+          <p className="text-xs text-green-700 dark:text-green-300">Auto-generated for this Digitap API. Same key works for Postman testing (sandbox) and live client systems. White-label name is always <b>CrossVerify</b>.</p>
           <div className="space-y-2">
-            <div><div className="text-xs font-medium">White-label URL</div><div className="flex gap-2"><code className="flex-1 rounded bg-white px-3 py-2 font-mono text-sm break-all border">{wlUrl}</code><button onClick={() => navigator.clipboard.writeText(wlUrl)} className="rounded border bg-white px-3 py-2 text-xs">Copy URL</button></div></div>
-            <div><div className="text-xs font-medium">CrossVerify White-Label Key</div><div className="flex gap-2"><code className="flex-1 rounded bg-black px-3 py-2 font-mono text-sm text-green-400 break-all">{wlKey}</code><button onClick={() => navigator.clipboard.writeText(wlKey)} className="rounded border bg-white px-3 py-2 text-xs">Copy Key</button></div><p className="text-xs text-gray-500">Client sends <code>Authorization: Bearer {wlKey.slice(0,12)}...</code> + <code>X-Environment: {testEnv}</code> to <code>{wlUrl}</code></p></div>
+            <div><div className="text-xs font-medium">White-label URL (CrossVerify)</div><div className="flex gap-2"><code className="flex-1 rounded bg-white px-3 py-2 font-mono text-sm break-all border">{wlUrl}</code><button onClick={() => navigator.clipboard.writeText(wlUrl)} className="rounded border bg-white px-3 py-2 text-xs">Copy URL</button></div></div>
+            <div><div className="text-xs font-medium">CrossVerify White-Label Key (auto-generated)</div><div className="flex gap-2"><code className="flex-1 rounded bg-black px-3 py-2 font-mono text-sm text-green-400 break-all">{wlKey}</code><button onClick={() => navigator.clipboard.writeText(wlKey)} className="rounded border bg-white px-3 py-2 text-xs">Copy Key</button></div><p className="text-xs text-gray-500">Postman: <code>Authorization: Bearer {wlKey.slice(0,12)}...</code> + <code>X-Environment: sandbox</code> · Live client: same key + <code>X-Environment: live</code> to <code>{wlUrl}</code> — works in their system</p></div>
+          </div>
+          <div className="rounded-lg bg-white border p-3 dark:bg-gray-900">
+            <div className="text-xs font-medium">Postman Environment (auto)</div>
+            <pre className="mt-1 rounded bg-gray-900 p-2 font-mono text-xs text-gray-100 overflow-auto">{JSON.stringify({ name: "CrossVerify", values: [{ key: "baseUrl", value: wlUrl?.replace(/\/api\/v1\/.*/, "/api/v1"), enabled: true }, { key: "apiKey", value: wlKey, enabled: true }, { key: "crossverifySlug", value: wlSlug, enabled: true }], _postman_variable_scope: "environment" }, null, 2)}</pre>
+            <button onClick={() => navigator.clipboard.writeText(JSON.stringify({ name: "CrossVerify", values: [{ key: "baseUrl", value: wlUrl?.replace(/\/api\/v1\/.*/, "/api/v1") }, { key: "apiKey", value: wlKey }, { key: "crossverifySlug", value: wlSlug }] }, null, 2))} className="mt-1 rounded border px-2 py-1 text-xs">Copy Postman Env</button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <a href={`/admin/crossverify?filter=${wlSlug}`} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white">View in CrossVerify</a>
-            <span className="text-xs text-gray-500 self-center">Slug: {wlSlug}</span>
+            <a href={`/admin/crossverify?filter=${wlSlug}`} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white">View in CrossVerify Dashboard</a>
+            <span className="text-xs text-gray-500 self-center">Slug: {wlSlug} · Name: CrossVerify — {cur?.name.split(" > ").slice(-1)[0]}</span>
           </div>
         </div>
       )}
