@@ -127,29 +127,31 @@ export async function POST(request: Request) {
     }
   }
 
+  const isCrossVerifyVendor = vendor.slug === "digitap";
+  const mockBaseUrl = "https://api-reseller-platform.vercel.app/api/mock/crossverify";
   const product = await prisma.apiProduct.create({
     data: {
-      name,
-      displayName: name,
+      name: isCrossVerifyVendor ? `CrossVerify — ${name}` : name,
+      displayName: isCrossVerifyVendor ? `CrossVerify — ${name}` : name,
       slug,
       version: "v1",
-      category: "Quick Add",
-      description: `White-label passthrough for "${name}".`,
+      category: isCrossVerifyVendor ? "CrossVerify" : "Quick Add",
+      description: isCrossVerifyVendor ? `CrossVerify white-label for "${name}" — ${url.pathname}` : `White-label passthrough for "${name}".`,
       vendorId: vendor.id,
       status: "published",
       supportsSandbox: true,
       supportsLive: true,
       method,
-      baseUrl: `${url.origin}`,
-      endpointPath: `${url.pathname}${url.search}`,
+      baseUrl: isCrossVerifyVendor ? mockBaseUrl : `${url.origin}`,
+      endpointPath: isCrossVerifyVendor ? `${url.pathname}${url.search}` : `${url.pathname}${url.search}`,
       requestBodyType: "json", // always JSON for proper testing
       requestBodyTemplate: (requestBodyTemplate as never) ?? (null as never),
       responseMode: "raw",
       errorMappings: null as never,
-      fallbackEnabled: mockVendorId ? true : false,
+      fallbackEnabled: false,
       fallbackRetryCount: 1,
       fallbackTimeoutMs: 3000,
-      fallbackVendorIds: mockVendorId || null,
+      fallbackVendorIds: null,
       defaultCost: 0,
       defaultPrice: 0,
       billingModel: "per_request",
