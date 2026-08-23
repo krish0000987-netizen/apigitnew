@@ -21,6 +21,8 @@ export async function POST(request: Request) {
     name?: string;
     url?: string;
     key?: string;
+    clientId?: string;
+    secretKey?: string;
     method?: string;
     authType?: string;
     authHeaderName?: string;
@@ -36,7 +38,10 @@ export async function POST(request: Request) {
 
   const name = (body.name ?? "").trim();
   const rawUrl = (body.url ?? "").trim();
-  const key = (body.key ?? "").trim();
+  const clientId = (body.clientId ?? "").trim();
+  const secretKey = (body.secretKey ?? "").trim();
+  const hasCredentials = clientId && secretKey;
+  const key = hasCredentials ? "Basic " + Buffer.from(`${clientId}:${secretKey}`).toString("base64") : (body.key ?? "").trim();
   const method = ["GET", "POST", "PUT", "PATCH", "DELETE"].includes(body.method ?? "")
     ? (body.method as string)
     : "POST";
@@ -117,9 +122,9 @@ export async function POST(request: Request) {
           liveEndpoint: url.toString(),
           liveKeyEnc: encryptSecret(key),
           liveKeyFingerprint: key ? fingerprint(key) : "",
-          authType: key ? authType : "none",
-          authHeaderName: authType === "api_key" ? authHeaderName : null,
-          authQueryParam: authType === "query" ? authQueryParam : null,
+          authType: "bearer",
+          authHeaderName: "Authorization",
+          authQueryParam: null,
           enabled: true,
         },
         select: { id: true, slug: true },
