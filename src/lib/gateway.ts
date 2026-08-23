@@ -238,7 +238,15 @@ async function handleProduct(
 
   const built = buildProviderRequest(productForRequest, vars, request.nextUrl.search, rawBody);
 
-  let attempt = await callProvider(product, product.vendor, useLive, built, requestId);
+  // Use mock vendor for sandbox CrossVerify to avoid auth issues with mock endpoint
+  let vendorForCall = product.vendor;
+  if (mode === "sandbox" && isCrossVerify) {
+    const mockVendor = await prisma.vendor.findUnique({ where: { slug: "mock-crossverify" }, select: { id: true, authType: true, sandboxKeyEnc: true, liveKeyEnc: true, authHeaderName: true, authQueryParam: true, authBasicEnc: true, authExtraHeadersEnc: true, authOAuthEnc: true, sandboxEndpoint: true, liveEndpoint: true } });
+    if (mockVendor) {
+      vendorForCall = mockVendor as any;
+    }
+  }
+  let attempt = await callProvider(productForRequest, vendorForCall, useLive, built, requestId);
 
   if (!attempt.ok && product.fallbackEnabled && attempt.retryable) {
     const fallbackIds = (product.fallbackVendorIds ?? "").split(",").map((s) => s.trim()).filter(Boolean);
